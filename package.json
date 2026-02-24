@@ -1,5 +1,5 @@
 {
-  "name": "my-expo-app",
+  "name": "product-explorer",
   "version": "1.0.0",
   "scripts": {
     "android": "expo start --android",
@@ -11,6 +11,12 @@
     "web": "expo start --web"
   },
   "dependencies": {
+    "@react-native-async-storage/async-storage": "^3.0.1",
+    "@react-navigation/bottom-tabs": "^7.14.0",
+    "@react-navigation/native": "^7.1.28",
+    "@react-navigation/stack": "^7.7.2",
+    "@reduxjs/toolkit": "^2.11.2",
+    "axios": "^1.13.5",
     "expo": "^54.0.0",
     "expo-status-bar": "~3.0.8",
     "nativewind": "latest",
@@ -18,7 +24,9 @@
     "react-native": "0.81.5",
     "react-native-reanimated": "~4.1.1",
     "react-native-safe-area-context": "~5.6.0",
-    "react-native-worklets": "0.5.1"
+    "react-native-screens": "^4.24.0",
+    "react-native-worklets": "0.5.1",
+    "react-redux": "^9.2.0"
   },
   "devDependencies": {
     "@babel/core": "^7.20.0",
@@ -27,8 +35,8 @@
     "eslint-config-expo": "~10.0.0",
     "eslint-config-prettier": "^10.1.2",
     "prettier": "^3.2.5",
-    "tailwindcss": "^3.4.0",
     "prettier-plugin-tailwindcss": "^0.5.11",
+    "tailwindcss": "^3.4.0",
     "typescript": "~5.9.2"
   },
   "main": "node_modules/expo/AppEntry.js",
