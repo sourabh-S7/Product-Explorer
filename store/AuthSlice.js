@@ -12,7 +12,7 @@ export const loginUser = createAsyncThunk(
       });
       const data = await res.json();
       if (!res.ok) return rejectWithValue(data?.message ?? 'Invalid username or password');
-      return data; // { accessToken, refreshToken, id, username, … }
+      return data;
     } catch {
       return rejectWithValue('Network error. Please try again.');
     }
@@ -35,6 +35,7 @@ const authSlice = createSlice({
       state.user       = null;
       state.isLoggedIn = false;
       state.error      = '';
+      state.loading    = false;
     },
     clearAuthError: (state) => {
       state.error = '';
@@ -49,7 +50,8 @@ const authSlice = createSlice({
       .addCase(loginUser.fulfilled, (state, action) => {
         state.loading    = false;
         state.token      = action.payload.accessToken;
-        state.user       = {
+        state.isLoggedIn = true;
+        state.user = {
           id:        action.payload.id,
           username:  action.payload.username,
           email:     action.payload.email,
@@ -57,7 +59,6 @@ const authSlice = createSlice({
           lastName:  action.payload.lastName,
           image:     action.payload.image,
         };
-        state.isLoggedIn = true;
       })
       .addCase(loginUser.rejected, (state, action) => {
         state.loading = false;

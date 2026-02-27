@@ -1,12 +1,13 @@
 import React, { useRef } from 'react';
 import {
   View, Text, FlatList, TouchableOpacity,
-  Image, StatusBar, Animated,
+  Image, StatusBar, Animated, Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useDispatch, useSelector } from 'react-redux';
 import { removeFavorite } from '../store/FavoritesSlice';
+import { logout } from '../store/AuthSlice';
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 const BG      = '#050d1a';
@@ -63,11 +64,9 @@ const FavCard = ({ item, onPress, onRemove }) => {
         <View style={{
           width: 106,
           backgroundColor: SUBTLE,
-          alignItems: 'center',
-          justifyContent: 'center',
+          alignItems: 'center', justifyContent: 'center',
           padding: 14,
-          borderRightWidth: 1,
-          borderRightColor: BORDER,
+          borderRightWidth: 1, borderRightColor: BORDER,
         }}>
           <Image
             source={{ uri: item.image }}
@@ -80,22 +79,16 @@ const FavCard = ({ item, onPress, onRemove }) => {
         <View style={{ flex: 1, padding: 14, justifyContent: 'space-between' }}>
           <View>
             <Text style={{
-              color: '#1e3a5f',
-              fontSize: 9, fontWeight: '800',
-              letterSpacing: 2.2, textTransform: 'uppercase',
-              marginBottom: 5,
+              color: '#1e3a5f', fontSize: 9, fontWeight: '800',
+              letterSpacing: 2.2, textTransform: 'uppercase', marginBottom: 5,
             }}>
               {CAT_LABELS[item.category] ?? item.category}
             </Text>
-            <Text
-              numberOfLines={2}
-              style={{ color: '#cbd5e1', fontSize: 13, fontWeight: '600', lineHeight: 19 }}
-            >
+            <Text numberOfLines={2} style={{ color: '#cbd5e1', fontSize: 13, fontWeight: '600', lineHeight: 19 }}>
               {item.title}
             </Text>
           </View>
 
-          {/* Price + rating */}
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 10 }}>
             <Text style={{ color: BLUE_LT, fontWeight: '900', fontSize: 16, letterSpacing: -0.3 }}>
               ${item.price}
@@ -121,8 +114,7 @@ const FavCard = ({ item, onPress, onRemove }) => {
           onPress={handleRemove}
           activeOpacity={0.75}
           style={{
-            width: 56,
-            alignItems: 'center', justifyContent: 'center',
+            width: 56, alignItems: 'center', justifyContent: 'center',
             borderLeftWidth: 1, borderLeftColor: BORDER,
           }}
         >
@@ -152,17 +144,12 @@ const EmptyState = ({ onBrowse }) => (
     }}>
       <Ionicons name="heart-dislike-outline" size={42} color="#7f1d1d" />
     </View>
-
-    <Text style={{
-      color: '#f1f5f9', fontSize: 22, fontWeight: '800',
-      letterSpacing: -0.5, marginBottom: 10, textAlign: 'center',
-    }}>
+    <Text style={{ color: '#f1f5f9', fontSize: 22, fontWeight: '800', letterSpacing: -0.5, marginBottom: 10, textAlign: 'center' }}>
       No Favourites Yet
     </Text>
     <Text style={{ color: '#334155', fontSize: 14, textAlign: 'center', lineHeight: 23, marginBottom: 36 }}>
       Browse our catalog and save the{'\n'}products you love.
     </Text>
-
     <TouchableOpacity
       onPress={onBrowse}
       activeOpacity={0.82}
@@ -172,10 +159,8 @@ const EmptyState = ({ onBrowse }) => (
         paddingHorizontal: 28, paddingVertical: 16,
         borderRadius: 18,
         borderWidth: 1, borderColor: '#3b82f6',
-        shadowColor: BLUE,
-        shadowOffset: { width: 0, height: 8 },
-        shadowOpacity: 0.45,
-        shadowRadius: 20, elevation: 10,
+        shadowColor: BLUE, shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.45, shadowRadius: 20, elevation: 10,
       }}
     >
       <Ionicons name="grid-outline" size={16} color="#fff" />
@@ -188,8 +173,26 @@ const EmptyState = ({ onBrowse }) => (
 
 // ─── Screen ───────────────────────────────────────────────────────────────────
 export default function FavouritesScreen({ navigation }) {
-  const dispatch      = useDispatch();
-  const favourites    = useSelector((state) => state.favorites.items);
+  const dispatch   = useDispatch();
+  const favourites = useSelector((state) => state.favorites.items);
+  const user       = useSelector((state) => state.auth.user);
+
+  const handleLogout = () => {
+    Alert.alert(
+      'Sign Out',
+      'Are you sure you want to sign out?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Sign Out',
+          style: 'destructive',
+          onPress: () => dispatch(logout()),
+          // RootNavigator will automatically switch to Login screen
+          // because isLoggedIn becomes false after logout
+        },
+      ]
+    );
+  };
 
   return (
     <View style={{ flex: 1, backgroundColor: BG }}>
@@ -202,37 +205,87 @@ export default function FavouritesScreen({ navigation }) {
       </View>
 
       <SafeAreaView style={{ flex: 1 }}>
-        {/* Header */}
-        <View style={{
-          paddingHorizontal: 24, paddingTop: 8, paddingBottom: 20,
-          flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-        }}>
-          <View>
-            <Text style={{
-              color: '#3f0a0a', fontSize: 9, fontWeight: '800',
-              letterSpacing: 3.5, textTransform: 'uppercase', marginBottom: 4,
-            }}>
-              Saved
-            </Text>
-            <Text style={{
-              color: '#f1f5f9', fontSize: 30, fontWeight: '900',
-              letterSpacing: -1, lineHeight: 34,
-            }}>
-              Favourites
-            </Text>
+
+        {/* ── Header ── */}
+        <View style={{ paddingHorizontal: 24, paddingTop: 8, paddingBottom: 20 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+            <View>
+              <Text style={{ color: '#3f0a0a', fontSize: 9, fontWeight: '800', letterSpacing: 3.5, textTransform: 'uppercase', marginBottom: 4 }}>
+                Saved
+              </Text>
+              <Text style={{ color: '#f1f5f9', fontSize: 30, fontWeight: '900', letterSpacing: -1, lineHeight: 34 }}>
+                Favourites
+              </Text>
+            </View>
+
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+              {/* Item count badge */}
+              {favourites.length > 0 && (
+                <View style={{
+                  paddingHorizontal: 16, paddingVertical: 8,
+                  borderRadius: 24,
+                  backgroundColor: '#1a0505',
+                  borderWidth: 1, borderColor: '#3f0a0a',
+                }}>
+                  <Text style={{ color: '#ef4444', fontWeight: '800', fontSize: 13, letterSpacing: 0.2 }}>
+                    {favourites.length} item{favourites.length !== 1 ? 's' : ''}
+                  </Text>
+                </View>
+              )}
+
+              {/* Logout button */}
+              <TouchableOpacity
+                onPress={handleLogout}
+                activeOpacity={0.8}
+                style={{
+                  width: 42, height: 42, borderRadius: 21,
+                  backgroundColor: CARD_BG,
+                  borderWidth: 1.5, borderColor: BORDER,
+                  alignItems: 'center', justifyContent: 'center',
+                }}
+              >
+                <Ionicons name="log-out-outline" size={20} color="#ef4444" />
+              </TouchableOpacity>
+            </View>
           </View>
 
-          {/* Count badge */}
-          {favourites.length > 0 && (
+          {/* User greeting */}
+          {user && (
             <View style={{
-              paddingHorizontal: 16, paddingVertical: 8,
-              borderRadius: 24,
-              backgroundColor: '#1a0505',
-              borderWidth: 1, borderColor: '#3f0a0a',
+              flexDirection: 'row', alignItems: 'center',
+              marginTop: 16,
+              backgroundColor: CARD_BG,
+              borderRadius: 16, borderWidth: 1.5, borderColor: BORDER,
+              paddingHorizontal: 16, paddingVertical: 12,
+              gap: 12,
             }}>
-              <Text style={{ color: '#ef4444', fontWeight: '800', fontSize: 13, letterSpacing: 0.2 }}>
-                {favourites.length} item{favourites.length !== 1 ? 's' : ''}
-              </Text>
+              <View style={{
+                width: 36, height: 36, borderRadius: 18,
+                backgroundColor: 'rgba(37,99,235,0.15)',
+                borderWidth: 1, borderColor: 'rgba(59,130,246,0.3)',
+                alignItems: 'center', justifyContent: 'center',
+              }}>
+                <Ionicons name="person-outline" size={16} color="#3b82f6" />
+              </View>
+              <View>
+                <Text style={{ color: '#f1f5f9', fontSize: 13, fontWeight: '700' }}>
+                  {user.firstName} {user.lastName}
+                </Text>
+                <Text style={{ color: '#334155', fontSize: 11, fontWeight: '500', marginTop: 1 }}>
+                  @{user.username}
+                </Text>
+              </View>
+              <View style={{ marginLeft: 'auto' }}>
+                <View style={{
+                  paddingHorizontal: 10, paddingVertical: 4,
+                  backgroundColor: 'rgba(34,197,94,0.1)',
+                  borderRadius: 20, borderWidth: 1, borderColor: 'rgba(34,197,94,0.25)',
+                }}>
+                  <Text style={{ color: '#22c55e', fontSize: 10, fontWeight: '700', letterSpacing: 0.5 }}>
+                    ● Online
+                  </Text>
+                </View>
+              </View>
             </View>
           )}
         </View>

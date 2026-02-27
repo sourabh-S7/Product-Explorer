@@ -1,6 +1,5 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
 function applyFilters(items, query, category) {
   return items.filter((p) => {
     const matchesQuery    = p.title.toLowerCase().includes(query.toLowerCase());
@@ -9,7 +8,6 @@ function applyFilters(items, query, category) {
   });
 }
 
-// ─── Async thunk ──────────────────────────────────────────────────────────────
 export const fetchProducts = createAsyncThunk(
   'products/fetchAll',
   async (_, { rejectWithValue }) => {
@@ -23,7 +21,6 @@ export const fetchProducts = createAsyncThunk(
   }
 );
 
-// ─── Slice ────────────────────────────────────────────────────────────────────
 const productsSlice = createSlice({
   name: 'products',
   initialState: {
@@ -58,11 +55,7 @@ const productsSlice = createSlice({
       .addCase(fetchProducts.fulfilled, (state, action) => {
         state.loading       = false;
         state.items         = action.payload;
-        state.filteredItems = applyFilters(
-          action.payload,
-          state.searchQuery,
-          state.selectedCategory
-        );
+        state.filteredItems = applyFilters(action.payload, state.searchQuery, state.selectedCategory);
       })
       .addCase(fetchProducts.rejected, (state, action) => {
         state.loading = false;
