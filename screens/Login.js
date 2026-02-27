@@ -93,10 +93,6 @@ export default function LoginScreen({ navigation }) {
   const glowPulse   = useRef(new Animated.Value(0)).current;
   const shakeAnim   = useRef(new Animated.Value(0)).current;
 
-  // ── Navigate after successful login ──────────────────────────────────────────
-  useEffect(() => {
-    if (isLoggedIn) navigation.replace('MainStack');
-  }, [isLoggedIn]);
 
   // ── Shake on API error ───────────────────────────────────────────────────────
   useEffect(() => {

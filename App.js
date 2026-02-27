@@ -1,13 +1,15 @@
 import './global.css';
-import React from 'react';
+import React, { useEffect } from 'react';
 import { View, ActivityIndicator, Platform } from 'react-native';
-import { Provider, useSelector }                             from 'react-redux';
-import { PersistGate }                                       from 'redux-persist/integration/react';
-import { store, persistor }                                  from './store/Index';
-import { NavigationContainer, DarkTheme }                   from '@react-navigation/native';
-import { createNativeStackNavigator }                        from '@react-navigation/native-stack';
-import { createBottomTabNavigator }                          from '@react-navigation/bottom-tabs';
-import { Ionicons }                                          from '@expo/vector-icons';
+import { Provider, useDispatch, useSelector } from 'react-redux';
+import { store }                              from './store/Index';
+import { restoreSession }                     from './store/AuthSlice';
+import { setFavorites }                       from './store/FavoritesSlice';
+import AsyncStorage                           from '@react-native-async-storage/async-storage';
+import { NavigationContainer, DarkTheme }     from '@react-navigation/native';
+import { createNativeStackNavigator }         from '@react-navigation/native-stack';
+import { createBottomTabNavigator }           from '@react-navigation/bottom-tabs';
+import { Ionicons }                           from '@expo/vector-icons';
 
 import LoginScreen      from './screens/Login';
 import HomeScreen       from './screens/HomeScreen';
@@ -30,14 +32,14 @@ const MyTheme = {
   },
 };
 
-// ─── Loading screen shown while AsyncStorage rehydrates ───────────────────────
-const PersistLoading = () => (
+// ─── Splash while restoring session ──────────────────────────────────────────
+const SplashScreen = () => (
   <View style={{ flex: 1, backgroundColor: '#050d1a', alignItems: 'center', justifyContent: 'center' }}>
     <ActivityIndicator size="large" color="#3b82f6" />
   </View>
 );
 
-// ─── Tab bar icon ─────────────────────────────────────────────────────────────
+// ─── Tab icon ─────────────────────────────────────────────────────────────────
 const TAB_ICONS = {
   Home:       { active: 'grid',  inactive: 'grid-outline'  },
   Favourites: { active: 'heart', inactive: 'heart-outline' },
@@ -45,8 +47,8 @@ const TAB_ICONS = {
 const TAB_LABELS = { Home: 'Catalog', Favourites: 'Saved' };
 
 function TabIcon({ routeName, focused, color }) {
-  const icons    = TAB_ICONS[routeName] ?? { active: 'help-circle', inactive: 'help-circle-outline' };
-  const isHeart  = routeName === 'Favourites';
+  const icons   = TAB_ICONS[routeName] ?? { active: 'help-circle', inactive: 'help-circle-outline' };
+  const isHeart = routeName === 'Favourites';
   return (
     <View style={{
       width: 46, height: 46, borderRadius: 23,
@@ -54,7 +56,7 @@ function TabIcon({ routeName, focused, color }) {
       backgroundColor: focused
         ? (isHeart ? 'rgba(239,68,68,0.14)' : 'rgba(37,99,235,0.18)')
         : 'transparent',
-      borderWidth:  focused ? 1 : 0,
+      borderWidth: focused ? 1 : 0,
       borderColor:  focused
         ? (isHeart ? 'rgba(239,68,68,0.3)' : 'rgba(59,130,246,0.35)')
         : 'transparent',
@@ -64,7 +66,6 @@ function TabIcon({ routeName, focused, color }) {
   );
 }
 
-// ─── Tabs ─────────────────────────────────────────────────────────────────────
 function MainTabs() {
   return (
     <Tab.Navigator
@@ -94,7 +95,6 @@ function MainTabs() {
   );
 }
 
-// ─── Main stack ───────────────────────────────────────────────────────────────
 function MainStack() {
   return (
     <Stack.Navigator screenOptions={{ headerShown: false, contentStyle: { backgroundColor: '#050d1a' }, animation: 'slide_from_right' }}>
@@ -104,9 +104,28 @@ function MainStack() {
   );
 }
 
-// ─── Root navigator — reads persisted auth to decide initial route ─────────────
+// ─── Root: restores session then routes based on isLoggedIn ──────────────────
 function RootNavigator() {
+  const dispatch   = useDispatch();
   const isLoggedIn = useSelector((state) => state.auth.isLoggedIn);
+  const hydrated   = useSelector((state) => state.auth.hydrated);
+
+  useEffect(() => {
+    const bootstrap = async () => {
+      // restore favorites
+      try {
+        const saved = await AsyncStorage.getItem('favorites');
+        if (saved) dispatch(setFavorites(JSON.parse(saved)));
+      } catch {}
+
+      // restore auth session
+      dispatch(restoreSession());
+    };
+    bootstrap();
+  }, []);
+
+  // Show splash until session check is done
+  if (!hydrated) return <SplashScreen />;
 
   return (
     <NavigationContainer theme={MyTheme}>
@@ -121,13 +140,10 @@ function RootNavigator() {
   );
 }
 
-// ─── Root ─────────────────────────────────────────────────────────────────────
 export default function App() {
   return (
     <Provider store={store}>
-      <PersistGate loading={<PersistLoading />} persistor={persistor}>
-        <RootNavigator />
-      </PersistGate>
+      <RootNavigator />
     </Provider>
   );
 }
