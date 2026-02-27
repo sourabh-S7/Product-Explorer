@@ -6,7 +6,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
 
-import { FavouritesProvider } from './components/FavoritesContext';
+import { FavouritesProvider } from './contexts/FavoritesContext';
 import LoginScreen from './screens/Login';
 import HomeScreen from './screens/HomeScreen';
 import ProductScreen from './screens/ProductScreen';

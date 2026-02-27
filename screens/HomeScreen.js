@@ -6,7 +6,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useFavourites } from '../components/FavoritesContext';
+import { useFavourites } from '../contexts/FavoritesContext';
 
 const { width } = Dimensions.get('window');
 
