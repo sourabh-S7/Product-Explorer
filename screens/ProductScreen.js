@@ -5,7 +5,8 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useFavourites } from '../contexts/FavoritesContext';
+import { useDispatch, useSelector } from 'react-redux';
+import { toggleFavorite } from '../store/FavoritesSlice';
 
 const { width } = Dimensions.get('window');
 
@@ -32,7 +33,7 @@ const Stars = ({ rating }) => {
   return (
     <View style={{ flexDirection: 'row', gap: 2 }}>
       {Array.from({ length: 5 }).map((_, i) => {
-        const name = i < full ? 'star' : (i === full && half ? 'star-half' : 'star-outline');
+        const name  = i < full ? 'star' : (i === full && half ? 'star-half' : 'star-outline');
         const color = i < full || (i === full && half) ? '#fbbf24' : '#1e3a5f';
         return <Ionicons key={i} name={name} size={15} color={color} />;
       })}
@@ -40,7 +41,7 @@ const Stars = ({ rating }) => {
   );
 };
 
-// ─── Info row component ───────────────────────────────────────────────────────
+// ─── Info pill ────────────────────────────────────────────────────────────────
 const InfoPill = ({ icon, label, value, valueColor }) => (
   <View style={{
     flex: 1,
@@ -62,9 +63,11 @@ const InfoPill = ({ icon, label, value, valueColor }) => (
 
 // ─── Screen ───────────────────────────────────────────────────────────────────
 export default function ProductScreen({ route, navigation }) {
+  const dispatch = useDispatch();
   const { product } = route.params;
-  const { toggleFavourite, isFavourite } = useFavourites();
-  const fav = isFavourite(product.id);
+
+  const favourites  = useSelector((state) => state.favorites.items);
+  const fav         = favourites.some((p) => p.id === product.id);
 
   const heartScale = useRef(new Animated.Value(1)).current;
 
@@ -73,7 +76,7 @@ export default function ProductScreen({ route, navigation }) {
       Animated.spring(heartScale, { toValue: 1.35, tension: 260, friction: 5, useNativeDriver: true }),
       Animated.spring(heartScale, { toValue: 1,    tension: 260, friction: 5, useNativeDriver: true }),
     ]).start();
-    toggleFavourite(product);
+    dispatch(toggleFavorite(product));
   };
 
   return (
@@ -107,11 +110,8 @@ export default function ProductScreen({ route, navigation }) {
           </TouchableOpacity>
 
           <Text style={{
-            color: '#1e3a5f',
-            fontSize: 10,
-            fontWeight: '800',
-            letterSpacing: 3,
-            textTransform: 'uppercase',
+            color: '#1e3a5f', fontSize: 10, fontWeight: '800',
+            letterSpacing: 3, textTransform: 'uppercase',
           }}>
             Product Detail
           </Text>
@@ -142,8 +142,7 @@ export default function ProductScreen({ route, navigation }) {
           {/* ── Product image ── */}
           <View style={{
             marginHorizontal: 24,
-            marginTop: 8,
-            marginBottom: 28,
+            marginTop: 8, marginBottom: 28,
             borderRadius: 24,
             backgroundColor: SUBTLE,
             borderWidth: 1.5, borderColor: BORDER,
@@ -170,62 +169,32 @@ export default function ProductScreen({ route, navigation }) {
               borderRadius: 24,
               backgroundColor: SUBTLE,
               borderWidth: 1, borderColor: BORDER,
-              marginBottom: 14,
-              gap: 6,
+              marginBottom: 14, gap: 6,
             }}>
               <View style={{ width: 5, height: 5, borderRadius: 2.5, backgroundColor: BLUE }} />
-              <Text style={{
-                color: BLUE_LT,
-                fontSize: 9, fontWeight: '800',
-                letterSpacing: 2.5, textTransform: 'uppercase',
-              }}>
+              <Text style={{ color: BLUE_LT, fontSize: 9, fontWeight: '800', letterSpacing: 2.5, textTransform: 'uppercase' }}>
                 {CAT_LABELS[product.category] ?? product.category}
               </Text>
             </View>
 
             {/* Title */}
             <Text style={{
-              color: '#f1f5f9',
-              fontSize: 22,
-              fontWeight: '800',
-              lineHeight: 31,
-              letterSpacing: -0.5,
-              marginBottom: 24,
+              color: '#f1f5f9', fontSize: 22, fontWeight: '800',
+              lineHeight: 31, letterSpacing: -0.5, marginBottom: 24,
             }}>
               {product.title}
             </Text>
 
             {/* Info pills row */}
             <View style={{ flexDirection: 'row', gap: 10, marginBottom: 24 }}>
-              <InfoPill
-                icon="pricetag-outline"
-                label="Price"
-                value={`$${product.price}`}
-                valueColor={BLUE_LT}
-              />
-              {product.rating && (
-                <InfoPill
-                  icon="star-outline"
-                  label="Rating"
-                  value={`${product.rating.rate} / 5`}
-                  valueColor="#fbbf24"
-                />
-              )}
-              {product.rating && (
-                <InfoPill
-                  icon="people-outline"
-                  label="Reviews"
-                  value={String(product.rating.count)}
-                />
-              )}
+              <InfoPill icon="pricetag-outline" label="Price"   value={`$${product.price}`}           valueColor={BLUE_LT}   />
+              {product.rating && <InfoPill icon="star-outline"   label="Rating"  value={`${product.rating.rate} / 5`} valueColor="#fbbf24" />}
+              {product.rating && <InfoPill icon="people-outline" label="Reviews" value={String(product.rating.count)} />}
             </View>
 
             {/* Star row */}
             {product.rating && (
-              <View style={{
-                flexDirection: 'row', alignItems: 'center',
-                marginBottom: 28, gap: 10,
-              }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 28, gap: 10 }}>
                 <Stars rating={product.rating.rate} />
                 <Text style={{ color: '#1e3a5f', fontSize: 12, fontWeight: '600' }}>
                   Based on {product.rating.count} reviews
@@ -236,23 +205,16 @@ export default function ProductScreen({ route, navigation }) {
             {/* Divider */}
             <View style={{ height: 1, backgroundColor: BORDER, marginBottom: 24 }} />
 
-            {/* Description label */}
+            {/* Description */}
             <Text style={{
-              color: '#1e3a5f',
-              fontSize: 9, fontWeight: '800',
-              letterSpacing: 3, textTransform: 'uppercase',
-              marginBottom: 12,
+              color: '#1e3a5f', fontSize: 9, fontWeight: '800',
+              letterSpacing: 3, textTransform: 'uppercase', marginBottom: 12,
             }}>
               Description
             </Text>
-
-            {/* Description text */}
             <Text style={{
-              color: '#475569',
-              fontSize: 14.5,
-              lineHeight: 25,
-              fontWeight: '400',
-              marginBottom: 28,
+              color: '#475569', fontSize: 14.5, lineHeight: 25,
+              fontWeight: '400', marginBottom: 28,
             }}>
               {product.description}
             </Text>
@@ -288,17 +250,14 @@ export default function ProductScreen({ route, navigation }) {
             onPress={handleFavToggle}
             activeOpacity={0.82}
             style={{
-              height: 60,
-              borderRadius: 20,
+              height: 60, borderRadius: 20,
               flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
               backgroundColor: fav ? '#1a0505' : BLUE,
               borderWidth: 1.5,
               borderColor: fav ? '#7f1d1d' : '#3b82f6',
               shadowColor: fav ? '#ef4444' : BLUE,
               shadowOffset: { width: 0, height: 10 },
-              shadowOpacity: 0.4,
-              shadowRadius: 24,
-              elevation: 12,
+              shadowOpacity: 0.4, shadowRadius: 24, elevation: 12,
               gap: 12,
             }}
           >
@@ -308,10 +267,8 @@ export default function ProductScreen({ route, navigation }) {
               color={fav ? '#ef4444' : '#fff'}
             />
             <Text style={{
-              fontSize: 14,
-              fontWeight: '800',
-              letterSpacing: 1.5,
-              textTransform: 'uppercase',
+              fontSize: 14, fontWeight: '800',
+              letterSpacing: 1.5, textTransform: 'uppercase',
               color: fav ? '#ef4444' : '#fff',
             }}>
               {fav ? 'Remove from Favourites' : 'Add to Favourites'}

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useEffect, useCallback, useRef } from 'react';
 import {
   View, Text, FlatList, TouchableOpacity,
   TextInput, Image, RefreshControl,
@@ -6,18 +6,23 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useFavourites } from '../contexts/FavoritesContext';
+import { useDispatch, useSelector } from 'react-redux';
+import {
+  fetchProducts,
+  setSearchQuery,
+  setSelectedCategory,
+} from '../store/ProductsSlice';
 
 const { width } = Dimensions.get('window');
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
-const BG        = '#050d1a';
-const CARD_BG   = '#080f1e';
-const BORDER    = '#0f2044';
-const BLUE      = '#2563eb';
-const BLUE_LT   = '#60a5fa';
-const MUTED     = '#334155';
-const SUBTLE    = '#0d1d35';
+const BG      = '#050d1a';
+const CARD_BG = '#080f1e';
+const BORDER  = '#0f2044';
+const BLUE    = '#2563eb';
+const BLUE_LT = '#60a5fa';
+const MUTED   = '#334155';
+const SUBTLE  = '#0d1d35';
 
 const CATEGORIES = ['All', 'electronics', "men's clothing", "women's clothing", 'jewelery'];
 
@@ -56,9 +61,8 @@ const CategoryChip = ({ cat, active, onPress }) => (
 );
 
 // ─── Product card ─────────────────────────────────────────────────────────────
-const ProductCard = ({ item, onPress, isFavourite }) => {
+const ProductCard = ({ item, onPress, fav }) => {
   const scaleAnim = useRef(new Animated.Value(1)).current;
-  const fav = isFavourite(item.id);
 
   const onPressIn  = () => Animated.spring(scaleAnim, { toValue: 0.96, useNativeDriver: true, tension: 200, friction: 10 }).start();
   const onPressOut = () => Animated.spring(scaleAnim, { toValue: 1,    useNativeDriver: true, tension: 200, friction: 10 }).start();
@@ -115,7 +119,6 @@ const ProductCard = ({ item, onPress, isFavourite }) => {
 
         {/* Info area */}
         <View style={{ padding: 12 }}>
-          {/* Category label */}
           <Text style={{
             color: '#1e3a5f',
             fontSize: 9,
@@ -127,7 +130,6 @@ const ProductCard = ({ item, onPress, isFavourite }) => {
             {CAT_LABELS[item.category] ?? item.category}
           </Text>
 
-          {/* Title */}
           <Text
             numberOfLines={2}
             style={{
@@ -141,7 +143,6 @@ const ProductCard = ({ item, onPress, isFavourite }) => {
             {item.title}
           </Text>
 
-          {/* Price + Rating */}
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
             <Text style={{ color: BLUE_LT, fontWeight: '900', fontSize: 15, letterSpacing: -0.3 }}>
               ${item.price}
@@ -244,38 +245,32 @@ const ErrorView = ({ onRetry }) => (
 
 // ─── Main screen ──────────────────────────────────────────────────────────────
 export default function HomeScreen({ navigation }) {
-  const [products, setProducts]           = useState([]);
-  const [filtered, setFiltered]           = useState([]);
-  const [loading, setLoading]             = useState(true);
-  const [refreshing, setRefreshing]       = useState(false);
-  const [error, setError]                 = useState(null);
-  const [search, setSearch]               = useState('');
-  const [activeCategory, setActiveCategory] = useState('All');
-  const { isFavourite } = useFavourites();
+  const dispatch = useDispatch();
 
-  const headerFade = useRef(new Animated.Value(0)).current;
+  const {
+    filteredItems,
+    items,
+    loading,
+    error,
+    searchQuery,
+    selectedCategory,
+  } = useSelector((state) => state.products);
+
+  const favoriteIds = new Set(
+    useSelector((state) => state.favorites.items).map((p) => p.id)
+  );
+
+  const headerFade  = useRef(new Animated.Value(0)).current;
   const headerSlide = useRef(new Animated.Value(-16)).current;
 
-  const fetchProducts = useCallback(async () => {
-    try {
-      setError(null);
-      const res = await fetch('https://fakestoreapi.com/products');
-      if (!res.ok) throw new Error('Failed to fetch products');
-      const data = await res.json();
-      setProducts(data);
-      setFiltered(data);
-    } catch (e) {
-      setError(e.message);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
+  // ── Fetch on mount ───────────────────────────────────────────────────────
+  useEffect(() => {
+    dispatch(fetchProducts());
   }, []);
 
-  useEffect(() => { fetchProducts(); }, []);
-
+  // ── Header animation after first load ────────────────────────────────────
   useEffect(() => {
-    if (!loading) {
+    if (!loading && items.length > 0) {
       Animated.parallel([
         Animated.timing(headerFade,  { toValue: 1, duration: 600, useNativeDriver: true }),
         Animated.spring(headerSlide, { toValue: 0, tension: 60, friction: 12, useNativeDriver: true }),
@@ -283,17 +278,13 @@ export default function HomeScreen({ navigation }) {
     }
   }, [loading]);
 
-  useEffect(() => {
-    let result = products;
-    if (activeCategory !== 'All') result = result.filter(p => p.category === activeCategory);
-    if (search.trim())            result = result.filter(p => p.title.toLowerCase().includes(search.toLowerCase()));
-    setFiltered(result);
-  }, [search, activeCategory, products]);
+  const onRefresh = useCallback(() => {
+    dispatch(fetchProducts());
+  }, []);
 
-  const onRefresh = () => { setRefreshing(true); fetchProducts(); };
-
-  if (loading)  return <LoadingView />;
-  if (error)    return <ErrorView onRetry={() => { setLoading(true); fetchProducts(); }} />;
+  // ── Guards ───────────────────────────────────────────────────────────────
+  if (loading && items.length === 0) return <LoadingView />;
+  if (error   && items.length === 0) return <ErrorView onRetry={() => dispatch(fetchProducts())} />;
 
   return (
     <View style={{ flex: 1, backgroundColor: BG }}>
@@ -315,26 +306,21 @@ export default function HomeScreen({ navigation }) {
               <View>
                 <Text style={{
                   color: '#1e3a5f',
-                  fontSize: 9,
-                  fontWeight: '800',
-                  letterSpacing: 3.5,
-                  textTransform: 'uppercase',
+                  fontSize: 9, fontWeight: '800',
+                  letterSpacing: 3.5, textTransform: 'uppercase',
                   marginBottom: 4,
                 }}>
                   Catalog
                 </Text>
                 <Text style={{
                   color: '#f1f5f9',
-                  fontSize: 30,
-                  fontWeight: '900',
-                  letterSpacing: -1,
-                  lineHeight: 34,
+                  fontSize: 30, fontWeight: '900',
+                  letterSpacing: -1, lineHeight: 34,
                 }}>
                   Products
                 </Text>
               </View>
 
-              {/* Favourites button */}
               <TouchableOpacity
                 onPress={() => navigation.navigate('Favourites')}
                 activeOpacity={0.8}
@@ -355,8 +341,7 @@ export default function HomeScreen({ navigation }) {
               backgroundColor: CARD_BG,
               borderRadius: 16,
               borderWidth: 1.5, borderColor: BORDER,
-              paddingHorizontal: 16,
-              height: 52,
+              paddingHorizontal: 16, height: 52,
               marginBottom: 16,
             }}>
               <View style={{
@@ -371,11 +356,11 @@ export default function HomeScreen({ navigation }) {
                 style={{ flex: 1, color: '#e2e8f0', fontSize: 14.5, fontWeight: '400' }}
                 placeholder="Search products…"
                 placeholderTextColor="#1e3a5f"
-                value={search}
-                onChangeText={setSearch}
+                value={searchQuery}
+                onChangeText={(t) => dispatch(setSearchQuery(t))}
               />
-              {search.length > 0 && (
-                <TouchableOpacity onPress={() => setSearch('')} style={{ padding: 4 }}>
+              {searchQuery.length > 0 && (
+                <TouchableOpacity onPress={() => dispatch(setSearchQuery(''))} style={{ padding: 4 }}>
                   <Ionicons name="close-circle" size={18} color={MUTED} />
                 </TouchableOpacity>
               )}
@@ -390,8 +375,8 @@ export default function HomeScreen({ navigation }) {
               renderItem={({ item }) => (
                 <CategoryChip
                   cat={item}
-                  active={activeCategory === item}
-                  onPress={() => setActiveCategory(item)}
+                  active={selectedCategory === item}
+                  onPress={() => dispatch(setSelectedCategory(item))}
                 />
               )}
               contentContainerStyle={{ paddingRight: 8 }}
@@ -405,7 +390,7 @@ export default function HomeScreen({ navigation }) {
           paddingHorizontal: 24, marginBottom: 12,
         }}>
           <Text style={{ color: '#1e3a5f', fontSize: 11, fontWeight: '700', letterSpacing: 1 }}>
-            {filtered.length} result{filtered.length !== 1 ? 's' : ''}
+            {filteredItems.length} result{filteredItems.length !== 1 ? 's' : ''}
           </Text>
           <View style={{
             flexDirection: 'row', alignItems: 'center',
@@ -419,7 +404,7 @@ export default function HomeScreen({ navigation }) {
 
         {/* Product grid */}
         <FlatList
-          data={filtered}
+          data={filteredItems}
           numColumns={2}
           keyExtractor={item => String(item.id)}
           contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 110 }}
@@ -427,7 +412,7 @@ export default function HomeScreen({ navigation }) {
           showsVerticalScrollIndicator={false}
           refreshControl={
             <RefreshControl
-              refreshing={refreshing}
+              refreshing={loading && items.length > 0}
               onRefresh={onRefresh}
               tintColor={BLUE_LT}
               colors={[BLUE_LT]}
@@ -436,7 +421,7 @@ export default function HomeScreen({ navigation }) {
           renderItem={({ item }) => (
             <ProductCard
               item={item}
-              isFavourite={isFavourite}
+              fav={favoriteIds.has(item.id)}
               onPress={() => navigation.navigate('ProductDetail', { product: item })}
             />
           )}

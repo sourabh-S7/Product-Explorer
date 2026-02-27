@@ -5,7 +5,8 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useFavourites } from '../contexts/FavoritesContext';
+import { useDispatch, useSelector } from 'react-redux';
+import { removeFavorite } from '../store/FavoritesSlice';
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 const BG      = '#050d1a';
@@ -32,7 +33,7 @@ const FavCard = ({ item, onPress, onRemove }) => {
     Animated.parallel([
       Animated.timing(slideAnim,   { toValue: 80,  duration: 260, useNativeDriver: true }),
       Animated.timing(opacityAnim, { toValue: 0,   duration: 220, useNativeDriver: true }),
-    ]).start(() => onRemove(item));
+    ]).start(() => onRemove(item.id));
   };
 
   return (
@@ -80,22 +81,15 @@ const FavCard = ({ item, onPress, onRemove }) => {
           <View>
             <Text style={{
               color: '#1e3a5f',
-              fontSize: 9,
-              fontWeight: '800',
-              letterSpacing: 2.2,
-              textTransform: 'uppercase',
+              fontSize: 9, fontWeight: '800',
+              letterSpacing: 2.2, textTransform: 'uppercase',
               marginBottom: 5,
             }}>
               {CAT_LABELS[item.category] ?? item.category}
             </Text>
             <Text
               numberOfLines={2}
-              style={{
-                color: '#cbd5e1',
-                fontSize: 13,
-                fontWeight: '600',
-                lineHeight: 19,
-              }}
+              style={{ color: '#cbd5e1', fontSize: 13, fontWeight: '600', lineHeight: 19 }}
             >
               {item.title}
             </Text>
@@ -128,10 +122,8 @@ const FavCard = ({ item, onPress, onRemove }) => {
           activeOpacity={0.75}
           style={{
             width: 56,
-            alignItems: 'center',
-            justifyContent: 'center',
-            borderLeftWidth: 1,
-            borderLeftColor: BORDER,
+            alignItems: 'center', justifyContent: 'center',
+            borderLeftWidth: 1, borderLeftColor: BORDER,
           }}
         >
           <View style={{
@@ -162,22 +154,12 @@ const EmptyState = ({ onBrowse }) => (
     </View>
 
     <Text style={{
-      color: '#f1f5f9',
-      fontSize: 22,
-      fontWeight: '800',
-      letterSpacing: -0.5,
-      marginBottom: 10,
-      textAlign: 'center',
+      color: '#f1f5f9', fontSize: 22, fontWeight: '800',
+      letterSpacing: -0.5, marginBottom: 10, textAlign: 'center',
     }}>
       No Favourites Yet
     </Text>
-    <Text style={{
-      color: '#334155',
-      fontSize: 14,
-      textAlign: 'center',
-      lineHeight: 23,
-      marginBottom: 36,
-    }}>
+    <Text style={{ color: '#334155', fontSize: 14, textAlign: 'center', lineHeight: 23, marginBottom: 36 }}>
       Browse our catalog and save the{'\n'}products you love.
     </Text>
 
@@ -197,10 +179,7 @@ const EmptyState = ({ onBrowse }) => (
       }}
     >
       <Ionicons name="grid-outline" size={16} color="#fff" />
-      <Text style={{
-        color: '#fff', fontWeight: '700', fontSize: 14,
-        marginLeft: 10, letterSpacing: 1.5, textTransform: 'uppercase',
-      }}>
+      <Text style={{ color: '#fff', fontWeight: '700', fontSize: 14, marginLeft: 10, letterSpacing: 1.5, textTransform: 'uppercase' }}>
         Browse Products
       </Text>
     </TouchableOpacity>
@@ -209,7 +188,8 @@ const EmptyState = ({ onBrowse }) => (
 
 // ─── Screen ───────────────────────────────────────────────────────────────────
 export default function FavouritesScreen({ navigation }) {
-  const { favourites, toggleFavourite } = useFavourites();
+  const dispatch      = useDispatch();
+  const favourites    = useSelector((state) => state.favorites.items);
 
   return (
     <View style={{ flex: 1, backgroundColor: BG }}>
@@ -223,24 +203,20 @@ export default function FavouritesScreen({ navigation }) {
 
       <SafeAreaView style={{ flex: 1 }}>
         {/* Header */}
-        <View style={{ paddingHorizontal: 24, paddingTop: 8, paddingBottom: 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+        <View style={{
+          paddingHorizontal: 24, paddingTop: 8, paddingBottom: 20,
+          flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+        }}>
           <View>
             <Text style={{
-              color: '#3f0a0a',
-              fontSize: 9,
-              fontWeight: '800',
-              letterSpacing: 3.5,
-              textTransform: 'uppercase',
-              marginBottom: 4,
+              color: '#3f0a0a', fontSize: 9, fontWeight: '800',
+              letterSpacing: 3.5, textTransform: 'uppercase', marginBottom: 4,
             }}>
               Saved
             </Text>
             <Text style={{
-              color: '#f1f5f9',
-              fontSize: 30,
-              fontWeight: '900',
-              letterSpacing: -1,
-              lineHeight: 34,
+              color: '#f1f5f9', fontSize: 30, fontWeight: '900',
+              letterSpacing: -1, lineHeight: 34,
             }}>
               Favourites
             </Text>
@@ -278,7 +254,7 @@ export default function FavouritesScreen({ navigation }) {
               <FavCard
                 item={item}
                 onPress={() => navigation.navigate('ProductDetail', { product: item })}
-                onRemove={toggleFavourite}
+                onRemove={(id) => dispatch(removeFavorite(id))}
               />
             )}
           />

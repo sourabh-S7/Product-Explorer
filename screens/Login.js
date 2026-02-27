@@ -5,7 +5,9 @@ import {
   ScrollView, Animated, StatusBar, Dimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons }     from '@expo/vector-icons';
+import { useDispatch, useSelector } from 'react-redux';
+import { loginUser, clearAuthError } from '../store/AuthSlice';
 
 const { width, height } = Dimensions.get('window');
 
@@ -71,32 +73,41 @@ const Field = ({
 
 // ─── Screen ───────────────────────────────────────────────────────────────────
 export default function LoginScreen({ navigation }) {
-  const [username, setUsername]               = useState('');
-  const [password, setPassword]               = useState('');
-  const [showPassword, setShowPassword]       = useState(false);
-  const [loading, setLoading]                 = useState(false);
-  const [usernameFocused, setUsernameFocused] = useState(false);
-  const [passwordFocused, setPasswordFocused] = useState(false);
-  const [usernameError, setUsernameError]     = useState('');
-  const [passwordError, setPasswordError]     = useState('');
-  // API-level error (wrong credentials, network failure, etc.)
-  const [apiError, setApiError]               = useState('');
+  const dispatch = useDispatch();
+  // ── Redux state ──
+  const { loading, error: apiError, isLoggedIn } = useSelector((state) => state.auth);
+
+  // ── Local UI state ──
+  const [username,       setUsername]       = useState('');
+  const [password,       setPassword]       = useState('');
+  const [showPassword,   setShowPassword]   = useState(false);
+  const [usernameFocused,setUsernameFocused] = useState(false);
+  const [passwordFocused,setPasswordFocused] = useState(false);
+  const [usernameError,  setUsernameError]  = useState('');
+  const [passwordError,  setPasswordError]  = useState('');
 
   const passwordRef = useRef(null);
   const fadeAnim    = useRef(new Animated.Value(0)).current;
   const titleSlide  = useRef(new Animated.Value(-32)).current;
   const cardSlide   = useRef(new Animated.Value(48)).current;
-  const badgeSlide  = useRef(new Animated.Value(16)).current;
   const glowPulse   = useRef(new Animated.Value(0)).current;
-  // Shake animation for the card on API error
   const shakeAnim   = useRef(new Animated.Value(0)).current;
+
+  // ── Navigate after successful login ──────────────────────────────────────────
+  useEffect(() => {
+    if (isLoggedIn) navigation.replace('MainStack');
+  }, [isLoggedIn]);
+
+  // ── Shake on API error ───────────────────────────────────────────────────────
+  useEffect(() => {
+    if (apiError) triggerShake();
+  }, [apiError]);
 
   useEffect(() => {
     Animated.parallel([
       Animated.timing(fadeAnim,   { toValue: 1, duration: 800, useNativeDriver: true }),
       Animated.spring(titleSlide, { toValue: 0, tension: 60, friction: 12, delay: 60,  useNativeDriver: true }),
       Animated.spring(cardSlide,  { toValue: 0, tension: 50, friction: 14, delay: 220, useNativeDriver: true }),
-      Animated.spring(badgeSlide, { toValue: 0, tension: 65, friction: 11, delay: 20,  useNativeDriver: true }),
     ]).start();
 
     Animated.loop(
@@ -110,7 +121,6 @@ export default function LoginScreen({ navigation }) {
   const glowOpacity = glowPulse.interpolate({ inputRange: [0, 1], outputRange: [0.05, 0.16] });
   const accentAnim  = glowPulse.interpolate({ inputRange: [0, 1], outputRange: ['#1d4ed8', '#3b82f6'] });
 
-  // ── Shake card on error ──────────────────────────────────────────────────────
   const triggerShake = () => {
     shakeAnim.setValue(0);
     Animated.sequence([
@@ -126,51 +136,29 @@ export default function LoginScreen({ navigation }) {
   // ── Client-side validation ───────────────────────────────────────────────────
   const validate = () => {
     let valid = true;
-    if (!username.trim()) { setUsernameError('Required');          valid = false; } else setUsernameError('');
-    if (!password)        { setPasswordError('Required');           valid = false; }
-    else setPasswordError('');
+    if (!username.trim()) {
+      setUsernameError('Required');
+      valid = false;
+    } else {
+      setUsernameError('');
+    }
+    if (!password) {
+      setPasswordError('Required');
+      valid = false;
+    } else if (password.length < 6) {
+      setPasswordError('Min 6 characters');
+      valid = false;
+    } else {
+      setPasswordError('');
+    }
     return valid;
   };
 
-  // ── API call ─────────────────────────────────────────────────────────────────
-  const handleLogin = async () => {
-    setApiError('');
+  // ── Dispatch login thunk ─────────────────────────────────────────────────────
+  const handleLogin = () => {
+    dispatch(clearAuthError());
     if (!validate()) return;
-
-    setLoading(true);
-    try {
-      const res = await fetch('https://dummyjson.com/auth/login', {
-        method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          username,
-          password,
-          expiresInMins: 1440,
-        }),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        // DummyJSON returns { message: "Invalid credentials" } on 400
-        const msg = data?.message ?? 'Invalid username or password';
-        setApiError(msg);
-        triggerShake();
-        return;
-      }
-
-      // ✅ Success — data contains token, user info, etc.
-      // You can store the token here with AsyncStorage or context if needed:
-      // await AsyncStorage.setItem('token', data.accessToken);
-      navigation.replace('MainStack');
-
-    } catch (err) {
-      // Network / parse error
-      setApiError('Network error. Please try again.');
-      triggerShake();
-    } finally {
-      setLoading(false);
-    }
+    dispatch(loginUser({ username, password }));
   };
 
   // ── Password strength ────────────────────────────────────────────────────────
@@ -220,7 +208,6 @@ export default function LoginScreen({ navigation }) {
           showsVerticalScrollIndicator={false}
           bounces={false}
         >
-
           {/* ── Hero headline ── */}
           <Animated.View style={{ opacity: fadeAnim, transform: [{ translateY: titleSlide }] }} className="mb-11">
             <View style={{ marginBottom: 2 }}>
@@ -246,14 +233,14 @@ export default function LoginScreen({ navigation }) {
               className="rounded-3xl border"
               style={{
                 backgroundColor: '#080f1e',
-                borderColor: apiError ? '#7f1d1d' : '#0f2044',
-                borderWidth: 1.5,
-                padding: 28,
-                shadowColor: apiError ? '#ef4444' : '#1d4ed8',
-                shadowOffset: { width: 0, height: 20 },
-                shadowOpacity: 0.22,
-                shadowRadius: 40,
-                elevation: 22,
+                borderColor:     apiError ? '#7f1d1d' : '#0f2044',
+                borderWidth:     1.5,
+                padding:         28,
+                shadowColor:     apiError ? '#ef4444' : '#1d4ed8',
+                shadowOffset:    { width: 0, height: 20 },
+                shadowOpacity:   0.22,
+                shadowRadius:    40,
+                elevation:       22,
               }}
             >
               {/* Card accent bar */}
@@ -266,13 +253,13 @@ export default function LoginScreen({ navigation }) {
                 Account credentials
               </Text>
 
-              {/* ── API error banner ── */}
+              {/* ── API error banner (from Redux) ── */}
               {apiError ? (
                 <View style={{
                   flexDirection: 'row', alignItems: 'center',
                   backgroundColor: '#1a0505',
-                  borderRadius: 14,
-                  borderWidth: 1, borderColor: '#7f1d1d',
+                  borderRadius:    14,
+                  borderWidth:     1, borderColor: '#7f1d1d',
                   paddingHorizontal: 16, paddingVertical: 12,
                   marginBottom: 20,
                   gap: 10,
@@ -292,7 +279,7 @@ export default function LoginScreen({ navigation }) {
                       {apiError}
                     </Text>
                   </View>
-                  <TouchableOpacity onPress={() => setApiError('')} style={{ padding: 4 }}>
+                  <TouchableOpacity onPress={() => dispatch(clearAuthError())} style={{ padding: 4 }}>
                     <Ionicons name="close" size={16} color="#7f1d1d" />
                   </TouchableOpacity>
                 </View>
@@ -307,14 +294,14 @@ export default function LoginScreen({ navigation }) {
                 clearable
                 onClear={() => setUsername('')}
                 inputProps={{
-                  value: username,
-                  placeholder: 'e.g. emilys',
-                  autoCapitalize: 'none',
-                  autoCorrect: false,
-                  returnKeyType: 'next',
-                  onChangeText: (t) => { setUsername(t); if (usernameError) setUsernameError(''); if (apiError) setApiError(''); },
-                  onFocus: () => setUsernameFocused(true),
-                  onBlur:  () => setUsernameFocused(false),
+                  value:           username,
+                  placeholder:     'e.g. emilys',
+                  autoCapitalize:  'none',
+                  autoCorrect:     false,
+                  returnKeyType:   'next',
+                  onChangeText:    (t) => { setUsername(t); if (usernameError) setUsernameError(''); if (apiError) dispatch(clearAuthError()); },
+                  onFocus:         () => setUsernameFocused(true),
+                  onBlur:          () => setUsernameFocused(false),
                   onSubmitEditing: () => passwordRef.current?.focus(),
                 }}
               />
@@ -328,17 +315,17 @@ export default function LoginScreen({ navigation }) {
                 toggleSecure={() => setShowPassword(p => !p)}
                 isSecure={!showPassword}
                 inputProps={{
-                  ref: passwordRef,
-                  value: password,
-                  placeholder: 'Enter your password',
+                  ref:             passwordRef,
+                  value:           password,
+                  placeholder:     'Enter your password',
                   secureTextEntry: !showPassword,
-                  autoCapitalize: 'none',
-                  autoCorrect: false,
-                  returnKeyType: 'done',
+                  autoCapitalize:  'none',
+                  autoCorrect:     false,
+                  returnKeyType:   'done',
                   onSubmitEditing: handleLogin,
-                  onChangeText: (t) => { setPassword(t); if (passwordError) setPasswordError(''); if (apiError) setApiError(''); },
-                  onFocus: () => setPasswordFocused(true),
-                  onBlur:  () => setPasswordFocused(false),
+                  onChangeText:    (t) => { setPassword(t); if (passwordError) setPasswordError(''); if (apiError) dispatch(clearAuthError()); },
+                  onFocus:         () => setPasswordFocused(true),
+                  onBlur:          () => setPasswordFocused(false),
                 }}
               />
 
@@ -368,15 +355,15 @@ export default function LoginScreen({ navigation }) {
                 activeOpacity={0.8}
                 className="flex-row items-center justify-center rounded-2xl"
                 style={{
-                  height: 60,
+                  height:          60,
                   backgroundColor: loading ? '#1e3a8a' : '#2563eb',
-                  borderWidth: 1,
-                  borderColor: loading ? '#1e40af' : '#3b82f6',
-                  shadowColor: '#2563eb',
-                  shadowOffset: { width: 0, height: 8 },
-                  shadowOpacity: loading ? 0.1 : 0.5,
-                  shadowRadius: 24,
-                  elevation: 14,
+                  borderWidth:     1,
+                  borderColor:     loading ? '#1e40af' : '#3b82f6',
+                  shadowColor:     '#2563eb',
+                  shadowOffset:    { width: 0, height: 8 },
+                  shadowOpacity:   loading ? 0.1 : 0.5,
+                  shadowRadius:    24,
+                  elevation:       14,
                 }}
               >
                 {loading ? (
@@ -400,7 +387,7 @@ export default function LoginScreen({ navigation }) {
 
               {/* Demo hint */}
               <TouchableOpacity
-                onPress={() => { setUsername('emilys'); setPassword('emilyspass'); setApiError(''); }}
+                onPress={() => { setUsername('emilys'); setPassword('emilyspass'); dispatch(clearAuthError()); }}
                 style={{ marginTop: 16, alignItems: 'center' }}
               >
                 <Text style={{ color: '#1e3a5f', fontSize: 11, fontWeight: '600', letterSpacing: 0.3 }}>
